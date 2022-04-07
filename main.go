@@ -1,17 +1,20 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"io/ioutil"
+	"dashboard_scripts/folder"
+	"dashboard_scripts/search"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 var (
-	testEnvEndPoint = "http://localhost:3000/api/"
+	endPoint               = "http://localhost:3000/api/"
+	getFolderResultFile    = "get_folder_result.json"
+	getDashboardResultFile = "get_dashboard_result.json"
+	dashboardDataFolder    = "data"
 )
 
 func httpClient() *http.Client {
@@ -19,50 +22,109 @@ func httpClient() *http.Client {
 	return client
 }
 
-func sendRequest(client *http.Client, method string, endpoint string, parameters map[string]string) []byte {
-	jsonData, err := json.Marshal(parameters)
-	if err != nil {
-		log.Fatalf("Error Occurred. %+v", err)
-	}
-
-	req, err := http.NewRequest(method, endpoint, bytes.NewBuffer(jsonData))
-	if err != nil {
-		log.Fatalf("Error Occurred. %+v", err)
-	}
-
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("apikey", os.Getenv("GRAFANA_API_KEY"))
-
-	response, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Error sending request to API endpoint. %+v", err)
-	}
-
-	// Close the connection to reuse it
-	defer response.Body.Close()
-
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatalf("Couldn't parse response body. %+v", err)
-	}
-
-	return body
+func getDashboards(c *http.Client, UIDs []string, folderName string) error {
+	return nil
 }
 
-func searchDashboards(c *http.Client) {
-	parameters := map[string]string{
-		"query":      "",
-		"starred":    "false",
-		"skipRecent": "true",
-		"folderId":   "0",
-		"layout":     "folders",
-		"prevSort":   "null",
-	}
-	response := sendRequest(c, http.MethodGet, testEnvEndPoint+"search", parameters)
-	log.Println("Response Body:", string(response))
-}
+// func readDashboardUIDs(fileName string) []string {
+// 	pwd, err := os.Getwd()
+// 	if err != nil {
+// 		log.Fatalf("Can't get current repository. %+v", err)
+// 		return nil
+// 	}
+
+// 	file, err := os.Open(filepath.Join(pwd, fileName))
+// 	if err != nil {
+// 		log.Fatalf("Can't open file. %+v", err)
+// 		return nil
+// 	}
+// 	defer file.Close()
+
+// 	var result []string
+// 	decoder := json.NewDecoder(file)
+// 	for {
+// 		var dashboard map[string]interface{}
+// 		if err := decoder.Decode(&dashboard); err != nil {
+// 			if err == io.EOF {
+// 				break
+// 			}
+// 			log.Fatalf("Can't decode file. %+v", err)
+// 			return nil
+// 		}
+// 		result = append(result, dashboard["uid"].(string))
+// 	}
+// 	return result
+// }
 
 func main() {
+	// clean up the dashboard folder
+	err := recreateDataFolder()
+	if err != nil {
+		log.Fatalf("Error recreating data folder for dashboards %+v", err)
+		os.Exit(1)
+	}
+
+	// create http client for sending requests
 	c := httpClient()
-	searchDashboards(c)
+
+	// search folders and store the map of folder UID <-> folder name
+	var folders *folder.GetResponse
+	folders, err = folder.GetFolders(c, getFolderResultFile, endPoint)
+	if err != nil {
+		log.Fatalf("Error occurred during get folders. %+v", err)
+		os.Exit(1)
+	}
+
+	// create folders in data according to API response
+	err = createFoldersInDataRepository(folders, dashboardDataFolder)
+	if err != nil {
+		log.Fatalf("Error occurred during create folders in data repository. %+v", err)
+		os.Exit(1)
+	}
+
+	// get dashboards in folders
+	for _, folder := range *folders {
+		err := search.GetDashboardsInFolder(c, getDashboardResultFile, folder, endPoint, dashboardDataFolder)
+		if err != nil {
+			log.Fatalf("Error occurred during search dashboards. %+v", err)
+		}
+	}
+}
+
+func createFoldersInDataRepository(folders *folder.GetResponse, dataFolder string) error {
+	pwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("Can't get current repository. %+v", err)
+		return err
+	}
+
+	for _, folder := range *folders {
+		err = os.Mkdir(filepath.Join(pwd, dataFolder, folder.UID), 0755)
+		if err != nil {
+			log.Fatalf("Can't create folder. %+v", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func recreateDataFolder() error {
+	pwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("Can't get current repository. %+v", err)
+		return err
+	}
+
+	err = os.RemoveAll(filepath.Join(pwd, dashboardDataFolder))
+	if err != nil {
+		log.Fatalf("Can't remove folder. %+v", err)
+		return err
+	}
+
+	err = os.Mkdir(filepath.Join(pwd, dashboardDataFolder), 0755)
+	if err != nil {
+		log.Fatalf("Can't create folder. %+v", err)
+		return err
+	}
+	return nil
 }
