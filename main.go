@@ -22,39 +22,9 @@ func httpClient() *http.Client {
 	return client
 }
 
-func getDashboards(c *http.Client, UIDs []string, folderName string) error {
+func getDashboard(c *http.Client, UIDs []string, folderName string) error {
 	return nil
 }
-
-// func readDashboardUIDs(fileName string) []string {
-// 	pwd, err := os.Getwd()
-// 	if err != nil {
-// 		log.Fatalf("Can't get current repository. %+v", err)
-// 		return nil
-// 	}
-
-// 	file, err := os.Open(filepath.Join(pwd, fileName))
-// 	if err != nil {
-// 		log.Fatalf("Can't open file. %+v", err)
-// 		return nil
-// 	}
-// 	defer file.Close()
-
-// 	var result []string
-// 	decoder := json.NewDecoder(file)
-// 	for {
-// 		var dashboard map[string]interface{}
-// 		if err := decoder.Decode(&dashboard); err != nil {
-// 			if err == io.EOF {
-// 				break
-// 			}
-// 			log.Fatalf("Can't decode file. %+v", err)
-// 			return nil
-// 		}
-// 		result = append(result, dashboard["uid"].(string))
-// 	}
-// 	return result
-// }
 
 func main() {
 	// clean up the dashboard folder
@@ -84,9 +54,17 @@ func main() {
 
 	// get dashboards in folders
 	for _, folder := range *folders {
-		err := search.GetDashboardsInFolder(c, getDashboardResultFile, folder, endPoint, dashboardDataFolder)
+		var dbsInFolder *search.GetDBsResponse
+		dbsInFolder, err := search.GetDashboardsInFolder(c, getDashboardResultFile, folder, endPoint, dashboardDataFolder)
 		if err != nil {
 			log.Fatalf("Error occurred during search dashboards. %+v", err)
+		}
+
+		for _, dashboard := range *dbsInFolder {
+			err := getDashboard(c, dashboardDataFolder, folder, dashboard)
+			if err != nil {
+				log.Fatalf("Error occurred during get dashboard. %+v", err)
+			}
 		}
 	}
 }
