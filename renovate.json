@@ -4,17 +4,12 @@
   ],
   "packageRules": [
     {
-      "updateTypes": [
-        "minor",
-        "patch"
-      ]
+      "matchPackagePatterns": ["*"],
+      "enabled": false
     }
   ],
-  "timezone": "Europe/Madrid",
-  "schedule": [
-    "after 7am every weekday",
-    "before 5am every weekday",
-    "every weekend"
-  ]
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
   "baseBranches": ["main", "^release-.*"]
 }
