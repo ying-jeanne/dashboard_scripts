@@ -15,36 +15,10 @@ export GRAFANA_API_KEY=<your_api_key>
 
 ### Installing
 
-* How/where to download your program
-* Any modifications needed to be made to files/folders
 
 ### Executing program
 
-* How to run the program
-* Step-by-step bullets
-```
-code blocks for commands
-```
 
-## Help
-
-Any advise for common problems or issues.
-```
-command to run if program contains helper info
-```
-
-## Authors
-
-Contributors names and contact info
-
-ex. Ying-Jeanne WANG
-
-## Version History
-
-* 0.2
-    * some fixes
-* 0.1
-    * Initial Release
 
 ## License
 
